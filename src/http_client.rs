@@ -1,6 +1,6 @@
 use async_h1::client;
 use http_types::{Error, Request, Response, StatusCode};
-use log::*;
+use log::debug;
 
 pub async fn execute(req: Request) -> Result<Response, Error> {
     debug!("executing request: {:#?}", req);
@@ -28,8 +28,7 @@ pub async fn execute(req: Request) -> Result<Response, Error> {
 
     let raw_stream = async_std::net::TcpStream::connect(addr).await?;
 
-    let tls_connector = async_tls::TlsConnector::default();
-    let stream = tls_connector.connect(host, raw_stream).await?;
+    let stream = async_native_tls::connect(host, raw_stream).await?;
 
     let result = client::connect(stream, req).await;
 
