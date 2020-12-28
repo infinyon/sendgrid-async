@@ -1,11 +1,10 @@
 use async_h1::client;
 use async_trait::async_trait;
-use http_types::{Body, Url};
-use http_types::{Error as HttpError, Method, Request, Response, StatusCode};
+use http_types::{Error as HttpError, Method, Request, Response, StatusCode, Url};
 use log::debug;
 use serde::de::DeserializeOwned;
-use std::{env, fmt::Debug};
 use std::borrow::Cow;
+use std::{env, fmt::Debug};
 
 /// Base url for the Sendgrid API.
 const DEFAULT_BASE_URL: &str = "https://api.sendgrid.com/v3/";
@@ -39,7 +38,11 @@ impl Client {
         &self.key
     }
 
-    fn create_request(&self, method: http_types::Method, rel_path: &str) -> Result<Request, HttpError> {
+    fn create_request(
+        &self,
+        method: http_types::Method,
+        rel_path: &str,
+    ) -> Result<Request, HttpError> {
         let url = self.base_url.join(rel_path)?;
         let mut req = Request::new(method, url);
         self.set_authorization_header(&mut req)?;
@@ -47,7 +50,7 @@ impl Client {
     }
 
     fn set_authorization_header(&self, req: &mut Request) -> Result<(), HttpError> {
-        use http_types::headers::{AUTHORIZATION, HeaderValue};
+        use http_types::headers::{HeaderValue, AUTHORIZATION};
         let bt = format!("Bearer {}", self.key);
         let bearer = HeaderValue::from_bytes(bt.into_bytes())?;
         req.append_header(AUTHORIZATION, bearer);
@@ -60,17 +63,19 @@ impl Client {
 pub enum ClientError<ErrorResponse: Debug + Send + DeserializeOwned + 'static> {
     #[error("API request error")]
     ApiError(StatusCode, ErrorResponse),
-    #[error("Unsupported media type in response: {}", _0)]
-    UnsupportedMediaType(http_types::Mime),
+    // #[error("Unsupported media type in response: {}", _0)]
+    // UnsupportedMediaType(http_types::Mime),
     #[error("An error has occurred while performing the API request: {}", _0)]
     HttpError(HttpError),
-    #[error("I/O error: {}", _0)]
-    Io(#[source] std::io::Error),
-    #[error("Error en/decoding \"application/json\" data: {}", _0)]
-    SerdeJson(#[source] serde_json::Error),
+    // #[error("I/O error: {}", _0)]
+    // Io(#[source] std::io::Error),
+    // #[error("Error en/decoding \"application/json\" data: {}", _0)]
+    // SerdeJson(#[source] serde_json::Error),
 }
 
-impl<ErrorResponse: Debug + Send + DeserializeOwned + 'static> From<HttpError> for ClientError<ErrorResponse> {
+impl<ErrorResponse: Debug + Send + DeserializeOwned + 'static> From<HttpError>
+    for ClientError<ErrorResponse>
+{
     fn from(err: HttpError) -> Self {
         Self::HttpError(err)
     }
@@ -148,7 +153,6 @@ where
         &self,
         client: &Client,
     ) -> Result<Self::Response, ClientError<Self::ErrorResponse>> {
-
         let base_req = client.create_request(Self::METHOD, &self.rel_path())?;
         let req = self.modify(base_req)?;
 
@@ -158,7 +162,7 @@ where
         } else {
             Err(ClientError::ApiError(
                 resp.status(),
-                resp.body_json().await?
+                resp.body_json().await?,
             ))
         }
     }
@@ -186,7 +190,9 @@ async fn send_http_request(req: Request) -> Result<Response, HttpError> {
         .socket_addrs(|| Some(443))?
         .into_iter()
         .next()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "could not resolve address"))?;
+        .ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::Other, "could not resolve address")
+        })?;
 
     let raw_stream = async_std::net::TcpStream::connect(addr).await?;
 
