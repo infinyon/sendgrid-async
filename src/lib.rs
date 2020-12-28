@@ -1,5 +1,5 @@
-mod sendgrid;
+mod api;
+mod client;
 
-pub(crate) mod http_client;
-
-pub use sendgrid::*;
+pub use client::Client as SendgridClient;
+pub use api::*;
