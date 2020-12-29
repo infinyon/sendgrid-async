@@ -13,9 +13,10 @@ categories = ["api-bindings","asynchronous","email"]
 anyhow = "1"
 async-h1 = "2"
 async-native-tls = "0.3"
-async-std = "1"
+async-net = "1"
 async-trait = "0.1"
 data-encoding = "2"
+derive_builder = "0.9.0"
 http-types = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
@@ -24,3 +25,7 @@ thiserror = "1"
 
 [dev-dependencies]
 tide = "0.15"
+rand = "0.8"
+async-test = "1"
+lazy_static = "1"
+async-std = { version = "1", features = ["attributes"] }

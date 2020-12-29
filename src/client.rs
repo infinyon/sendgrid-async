@@ -1,10 +1,8 @@
 use async_h1::client;
 use async_trait::async_trait;
-use http_types::{
-    Body, Error as HttpError, Method as HttpMethod, Request, Response, StatusCode, Url,
-};
+use http_types::{Error as HttpError, Method as HttpMethod, Request, Response, StatusCode, Url};
 use log::debug;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{env, fmt::Debug};
 
@@ -12,33 +10,41 @@ use std::{env, fmt::Debug};
 const DEFAULT_BASE_URL: &str = "https://api.sendgrid.com/v3/";
 
 /// Entrypoint for interacting with the SendGrid API.
+#[derive(Clone, Debug)]
 pub struct Client {
     base_url: Url,
     key: String,
 }
 
 impl Client {
-    /// Create a new SendGrid client struct..
-    pub fn new<K>(key: K) -> Self
-    where
-        K: Into<String>,
-    {
-        Self {
+    pub fn builder() -> ClientBuilder {
+        ClientBuilder {
             base_url: Url::parse(DEFAULT_BASE_URL).expect("error parsing DEFAULT_BASE_URL"),
-            key: key.into(),
+            key: env::var("SENDGRID_API_KEY").ok(),
         }
     }
 
-    /// Create a new SendGrid client struct from environment variables.
-    pub fn new_from_env() -> Self {
-        let key = env::var("SENDGRID_API_KEY").expect("SENDGRID_API_KEY env variable not set");
-        Client::new(key)
-    }
+    // /// Create a new SendGrid client struct..
+    // pub fn new<K>(key: K) -> Self
+    // where
+    //     K: Into<String>,
+    // {
+    //     Self {
+    //         base_url: Url::parse(DEFAULT_BASE_URL).expect("error parsing DEFAULT_BASE_URL"),
+    //         key: key.into(),
+    //     }
+    // }
 
-    /// Get the currently set API key.
-    pub fn key(&self) -> &str {
-        &self.key
-    }
+    // /// Create a new SendGrid client struct from environment variables.
+    // pub fn new_from_env() -> Self {
+    //     let key = env::var("SENDGRID_API_KEY").expect("SENDGRID_API_KEY env variable not set");
+    //     Client::new(key)
+    // }
+
+    // /// Get the currently set API key.
+    // pub fn key(&self) -> &str {
+    //     &self.key
+    // }
 
     fn create_request(
         &self,
@@ -60,6 +66,29 @@ impl Client {
     }
 }
 
+#[derive(Clone)]
+pub struct ClientBuilder {
+    base_url: Url,
+    key: Option<String>,
+}
+
+impl ClientBuilder {
+    pub fn base_url<S: AsRef<str>>(&mut self, url: S) -> &mut Self {
+        self.base_url = Url::parse(DEFAULT_BASE_URL).expect("error parsing DEFAULT_BASE_URL");
+        self
+    }
+    pub fn key<S: Into<String>>(&mut self, key: S) -> &mut Self {
+        self.key = Some(key.into());
+        self
+    }
+    pub fn build(self) -> Result<Client, String> {
+        Ok(Client {
+            base_url: self.base_url,
+            key: self.key.ok_or("key must be initialized")?,
+        })
+    }
+}
+
 /// Common API errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError<ErrorResponse>
@@ -69,7 +98,7 @@ where
     #[error("API request error")]
     ApiError(StatusCode, ErrorResponse),
     #[error("An error has occurred while performing the API request: {}", _0)]
-    HttpError(HttpError)
+    HttpError(HttpError),
 }
 
 impl<ErrorResponse> From<HttpError> for ClientError<ErrorResponse>
@@ -197,7 +226,7 @@ async fn send_http_request(req: Request) -> Result<Response, HttpError> {
         .next()
         .ok_or_else(|| IoError::new(IoErrorKind::Other, "could not resolve address"))?;
 
-    let raw_stream = async_std::net::TcpStream::connect(addr).await?;
+    let raw_stream = async_net::TcpStream::connect(addr).await?;
 
     let stream = async_native_tls::connect(host, raw_stream).await?;
 
