@@ -1,5 +1,5 @@
 mod api;
 mod client;
 
-pub use client::Client as SendgridClient;
+pub use client::Client;
 pub use api::*;
