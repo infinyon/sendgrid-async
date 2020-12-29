@@ -1,8 +1,10 @@
 use async_h1::client;
 use async_trait::async_trait;
-use http_types::{Error as HttpError, Method, Request, Response, StatusCode, Url};
+use http_types::{
+    Body, Error as HttpError, Method as HttpMethod, Request, Response, StatusCode, Url,
+};
 use log::debug;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Cow;
 use std::{env, fmt::Debug};
 
@@ -60,21 +62,19 @@ impl Client {
 
 /// Common API errors.
 #[derive(Debug, thiserror::Error)]
-pub enum ClientError<ErrorResponse: Debug + Send + DeserializeOwned + 'static> {
+pub enum ClientError<ErrorResponse>
+where
+    ErrorResponse: Debug + Send + DeserializeOwned + 'static,
+{
     #[error("API request error")]
     ApiError(StatusCode, ErrorResponse),
-    // #[error("Unsupported media type in response: {}", _0)]
-    // UnsupportedMediaType(http_types::Mime),
     #[error("An error has occurred while performing the API request: {}", _0)]
-    HttpError(HttpError),
-    // #[error("I/O error: {}", _0)]
-    // Io(#[source] std::io::Error),
-    // #[error("Error en/decoding \"application/json\" data: {}", _0)]
-    // SerdeJson(#[source] serde_json::Error),
+    HttpError(HttpError)
 }
 
-impl<ErrorResponse: Debug + Send + DeserializeOwned + 'static> From<HttpError>
-    for ClientError<ErrorResponse>
+impl<ErrorResponse> From<HttpError> for ClientError<ErrorResponse>
+where
+    ErrorResponse: Debug + Send + DeserializeOwned + 'static,
 {
     fn from(err: HttpError) -> Self {
         Self::HttpError(err)
@@ -93,15 +93,14 @@ where
     type ErrorResponse: Debug + Send + DeserializeOwned + 'static;
 
     /// HTTP method used by this call.
-    const METHOD: Method;
+    const METHOD: HttpMethod;
 
     /// Relative URL for this API call formatted appropriately with parameter values.
     fn rel_path(&self) -> Cow<'static, str>;
 
-    /// Modifier for this object. Builders override this method if they
-    /// wish to add query parameters, set body, etc.
-    fn modify(&self, req: Request) -> Result<Request, ClientError<Self::ErrorResponse>> {
-        Ok(req)
+    /// Modify for this request.
+    fn modify_request(&self, mut _req: Request) -> Result<(), HttpError> {
+        Ok(())
     }
 
     /// Sends the request and returns a future for the response object.
@@ -153,8 +152,13 @@ where
         &self,
         client: &Client,
     ) -> Result<Self::Response, ClientError<Self::ErrorResponse>> {
-        let base_req = client.create_request(Self::METHOD, &self.rel_path())?;
-        let req = self.modify(base_req)?;
+        let req = client.create_request(Self::METHOD, &self.rel_path())?;
+
+        // match Self::METHOD {
+        //     HttpMethod::Get => req.set_query(self)?,
+        //     HttpMethod::Post => req.set_body(Body::from_json(self)?),
+        //     _ => return Err(ClientError::HttpMethodNotSupported),
+        // }
 
         let mut resp = send_http_request(req).await?;
         if resp.status().is_success() {
@@ -169,12 +173,13 @@ where
 }
 
 async fn send_http_request(req: Request) -> Result<Response, HttpError> {
+    use std::io::{Error as IoError, ErrorKind as IoErrorKind};
     debug!("executing request: {:#?}", req);
 
     let host = req
         .url()
         .host_str()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "missing hostname"))?
+        .ok_or_else(|| IoError::new(IoErrorKind::Other, "missing hostname"))?
         .to_string();
 
     let scheme = req.url().scheme();
@@ -190,9 +195,7 @@ async fn send_http_request(req: Request) -> Result<Response, HttpError> {
         .socket_addrs(|| Some(443))?
         .into_iter()
         .next()
-        .ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Other, "could not resolve address")
-        })?;
+        .ok_or_else(|| IoError::new(IoErrorKind::Other, "could not resolve address"))?;
 
     let raw_stream = async_std::net::TcpStream::connect(addr).await?;
 

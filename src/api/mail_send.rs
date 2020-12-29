@@ -1,33 +1,16 @@
 use std::collections::HashMap;
 use std::borrow::Cow;
 
-use serde::{Deserialize, Serialize};
+use http_types::{Body, Request, Error as HttpError};
+use serde::Serialize;
 
 use crate::client::Sendable;
 
 /// This endpoint allows you to send email over SendGrid’s v3 Web API, the most recent version of our API.
-#[derive(Serialize)]
-struct MailSendRequest {
-    #[serde(flatten)]
-    message: Message,
-}
-
-impl Sendable for MailSendRequest {
-    type Response = ();
-    type ErrorResponse = ();
-
-    const METHOD: http_types::Method = http_types::Method::Post;
-
-    fn rel_path(&self) -> Cow<'static, str> {
-        Cow::Borrowed("mail/send")
-    }
-
-}
-
 /// The main structure for the mail send request. This is composed of many other smaller
 /// structures used to add lots of customization to your message.
-#[derive(Default, Serialize)]
-struct Message {
+#[derive(Debug, Default, Serialize)]
+struct MailSendRequest {
     from: Address,
     subject: String,
     personalizations: Vec<Personalization>,
@@ -42,8 +25,24 @@ struct Message {
     template_id: Option<String>,
 }
 
+impl Sendable for MailSendRequest {
+    type Response = ();
+    type ErrorResponse = super::ErrorReponse;
+
+    const METHOD: http_types::Method = http_types::Method::Post;
+
+    fn rel_path(&self) -> Cow<'static, str> {
+        Cow::Borrowed("mail/send")
+    }
+
+    fn modify_request(&self, mut req: Request) -> Result<(), HttpError> {
+        req.set_body(Body::from_json(self)?);
+        Ok(())
+    }
+}
+
 /// An email with a required address and an optional name field.
-#[derive(Clone, Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct Address {
     email: String,
 
@@ -53,7 +52,7 @@ pub struct Address {
 
 /// A personalization block for a V3 message. It has to at least contain one super::Address as a to
 /// address. All other fields are optional.
-#[derive(Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct Personalization {
     to: Vec<super::Address>,
 
@@ -83,7 +82,7 @@ pub struct Personalization {
 }
 
 /// The body of an email with the content type and the message.
-#[derive(Clone, Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct Content {
     #[serde(rename = "type")]
     content_type: String,
@@ -93,7 +92,7 @@ pub struct Content {
 /// An attachment block for a V3 message. Content and filename are required. If the
 /// mime_type is unspecified, the email will use Sendgrid's default for attachments
 /// which is 'application/octet-stream'.
-#[derive(Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct Attachment {
     content: String,
 
