@@ -32,6 +32,7 @@ impl Client {
     ) -> Result<Request, HttpError> {
         let url = self.base_url.join(rel_path)?;
         let mut req = Request::new(method, url);
+        req.set_content_type("application/json".into());
         self.set_authorization_header(&mut req)?;
         Ok(req)
     }
@@ -107,7 +108,7 @@ where
     fn rel_path(&self) -> Cow<'static, str>;
 
     /// Modify for this request.
-    fn modify_request(&self, mut _req: Request) -> Result<(), HttpError> {
+    fn modify_request(&self, _req: &mut Request) -> Result<(), HttpError> {
         Ok(())
     }
 
@@ -116,13 +117,9 @@ where
         &self,
         client: &Client,
     ) -> Result<Self::Response, ClientError<Self::ErrorResponse>> {
-        let req = client.create_request(Self::METHOD, &self.rel_path())?;
+        let mut req = client.create_request(Self::METHOD, &self.rel_path())?;
 
-        // match Self::METHOD {
-        //     HttpMethod::Get => req.set_query(self)?,
-        //     HttpMethod::Post => req.set_body(Body::from_json(self)?),
-        //     _ => return Err(ClientError::HttpMethodNotSupported),
-        // }
+        self.modify_request(&mut req)?;
 
         let mut resp = send_http_request(req).await?;
         trace!("response: {:?}", resp);

@@ -35,7 +35,7 @@ impl Sendable for ListTemplatesRequest {
         Cow::Borrowed("templates")
     }
 
-    fn modify_request(&self, mut req: Request) -> Result<(), HttpError> {
+    fn modify_request(&self, req: &mut Request) -> Result<(), HttpError> {
         req.set_query(self)
     }
 }
