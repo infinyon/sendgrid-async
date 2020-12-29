@@ -42,13 +42,13 @@ impl Sendable for ListTemplatesRequest {
 
 #[derive(Deserialize, Debug)]
 pub struct ListTemplatesResponse {
-    pub result: Vec<TemplateResponse>,
+    pub result: Vec<Template>,
     #[serde(rename = "_metadata")]
     pub metadata: PagingMetadata,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct TemplateResponse {
+pub struct Template {
     pub id: String,
     pub name: String,
     pub generation: String,
