@@ -5,6 +5,7 @@ use log::debug;
 use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{env, fmt::Debug};
+use tracing::*;
 
 /// Base url for the Sendgrid API.
 const DEFAULT_BASE_URL: &str = "https://api.sendgrid.com/v3/";
@@ -23,28 +24,6 @@ impl Client {
             key: env::var("SENDGRID_API_KEY").ok(),
         }
     }
-
-    // /// Create a new SendGrid client struct..
-    // pub fn new<K>(key: K) -> Self
-    // where
-    //     K: Into<String>,
-    // {
-    //     Self {
-    //         base_url: Url::parse(DEFAULT_BASE_URL).expect("error parsing DEFAULT_BASE_URL"),
-    //         key: key.into(),
-    //     }
-    // }
-
-    // /// Create a new SendGrid client struct from environment variables.
-    // pub fn new_from_env() -> Self {
-    //     let key = env::var("SENDGRID_API_KEY").expect("SENDGRID_API_KEY env variable not set");
-    //     Client::new(key)
-    // }
-
-    // /// Get the currently set API key.
-    // pub fn key(&self) -> &str {
-    //     &self.key
-    // }
 
     fn create_request(
         &self,
@@ -74,17 +53,17 @@ pub struct ClientBuilder {
 
 impl ClientBuilder {
     pub fn base_url<S: AsRef<str>>(&mut self, url: S) -> &mut Self {
-        self.base_url = Url::parse(DEFAULT_BASE_URL).expect("error parsing DEFAULT_BASE_URL");
+        self.base_url = Url::parse(url.as_ref()).expect("error parsing DEFAULT_BASE_URL");
         self
     }
     pub fn key<S: Into<String>>(&mut self, key: S) -> &mut Self {
         self.key = Some(key.into());
         self
     }
-    pub fn build(self) -> Result<Client, String> {
+    pub fn build(&self) -> Result<Client, String> {
         Ok(Client {
-            base_url: self.base_url,
-            key: self.key.ok_or("key must be initialized")?,
+            base_url: self.base_url.clone(),
+            key: self.key.clone().ok_or("key must be initialized")?,
         })
     }
 }
@@ -132,50 +111,6 @@ where
         Ok(())
     }
 
-    /// Sends the request and returns a future for the response object.
-    // async fn send(
-    //     &self,
-    //     client: &Client,
-    // ) -> Result<Response, ClientError> {
-    //     let resp = self.send_raw(client).await?;
-    //     let media = resp.media_type();
-    //     if let Some(ty) = media {
-    //         if media_types::M_0.matches(&ty) {
-    //             return ResponseWrapper::wrap(resp, |r| async {
-    //                 let bytes = r.body_bytes().await?;
-    //                 serde_json::from_reader(bytes.as_ref()).map_err(ApiError::from)
-    //             })
-    //             .await;
-    //         } else if media_types::M_1.matches(&ty) {
-    //             return ResponseWrapper::wrap(resp, |r| async {
-    //                 let bytes = r.body_bytes().await?;
-    //                 serde_yaml::from_reader(bytes.as_ref()).map_err(ApiError::from)
-    //             })
-    //             .await;
-    //         }
-    //     }
-
-    //     let ty = resp
-    //         .header(http::header::CONTENT_TYPE.as_str())
-    //         .map(|v| String::from_utf8_lossy(v.as_bytes()).into_owned())
-    //         .unwrap_or_default();
-    //     Err(ApiError::UnsupportedMediaType(ty, Mutex::new(resp)))
-    // }
-
-    // pub async fn execute(&self, client: &Client) -> Result<ListTemplatesResponse> {
-    //     let url = client.url("templates")?;
-    //     let mut request = Request::get(url);
-    //     client.set_authorization_header(&mut request)?;
-    //     request.set_query(self)?;
-
-    //     let mut response = crate::http_client::execute(request).await?;
-    //     if response.status() != StatusCode::Ok {
-    //         panic!("received response status");
-    //     }
-
-    //     Ok(response.body_json().await?)
-    // }
-
     /// Convenience method for returning a raw response after sending a request.
     async fn send(
         &self,
@@ -190,6 +125,7 @@ where
         // }
 
         let mut resp = send_http_request(req).await?;
+        trace!("response: {:?}", resp);
         if resp.status().is_success() {
             Ok(resp.body_json().await?)
         } else {
@@ -211,26 +147,24 @@ async fn send_http_request(req: Request) -> Result<Response, HttpError> {
         .ok_or_else(|| IoError::new(IoErrorKind::Other, "missing hostname"))?
         .to_string();
 
-    let scheme = req.url().scheme();
-    if scheme != "https" {
-        panic!(
-            "{} scheme not is supported, only https is supported",
-            scheme
-        );
-    }
+
+        let is_https = req.url().scheme() == "https";
 
     let addr = req
         .url()
-        .socket_addrs(|| Some(443))?
+        .socket_addrs(|| if is_https { Some(443) } else { Some(80) })?
         .into_iter()
         .next()
         .ok_or_else(|| IoError::new(IoErrorKind::Other, "could not resolve address"))?;
 
-    let raw_stream = async_net::TcpStream::connect(addr).await?;
+    let tcp_stream = async_net::TcpStream::connect(addr).await?;
 
-    let stream = async_native_tls::connect(host, raw_stream).await?;
-
-    let result = client::connect(stream, req).await;
+    let result = if is_https {
+        let tls_stream = async_native_tls::connect(host, tcp_stream).await?;
+        client::connect(tls_stream, req).await
+    } else {
+        client::connect(tcp_stream, req).await
+    };
 
     debug!("http result: {:#?}", result);
 

@@ -1,5 +1,4 @@
 
-use http_types::{Body, Request, Error as HttpError};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 

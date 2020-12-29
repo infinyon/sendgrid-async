@@ -10,7 +10,7 @@ use crate::client::Sendable;
 /// The main structure for the mail send request. This is composed of many other smaller
 /// structures used to add lots of customization to your message.
 #[derive(Debug, Default, Serialize)]
-struct MailSendRequest {
+pub struct MailSendRequest {
     from: Address,
     subject: String,
     personalizations: Vec<Personalization>,
