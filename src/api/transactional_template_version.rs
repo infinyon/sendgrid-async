@@ -5,8 +5,6 @@ use std::borrow::Cow;
 
 use crate::client::Sendable;
 
-use super::paging::PagingMetadata;
-
 #[derive(Debug)]
 pub struct RetrieveTemplateVersionRequest {
     pub template_id: String,
@@ -14,7 +12,7 @@ pub struct RetrieveTemplateVersionRequest {
 }
 
 impl Sendable for RetrieveTemplateVersionRequest {
-    type Response = RetrieveTemplateVersionResponse;
+    type Response = TemplateVersion;
     type ErrorResponse = super::ErrorReponse;
 
     const METHOD: http_types::Method = http_types::Method::Get;
@@ -24,8 +22,24 @@ impl Sendable for RetrieveTemplateVersionRequest {
     }    
 }
 
+#[derive(Debug, Serialize)]
+pub struct CreateTemplateVersionRequest {
+    pub template_id: String,
+}
+
+impl Sendable for CreateTemplateVersionRequest {
+    type Response = TemplateVersion;
+    type ErrorResponse = super::ErrorReponse;
+
+    const METHOD: http_types::Method = http_types::Method::Get;
+
+    fn rel_path(&self) -> Cow<'static, str> {
+        Cow::Owned(format!("templates/{}/versions", self.template_id))
+    }    
+}
+
 #[derive(Deserialize, Debug)]
-pub struct RetrieveTemplateVersionResponse {
+pub struct TemplateVersion {
     id: String,
     template_id: String,
     name: String,
