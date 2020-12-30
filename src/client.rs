@@ -1,11 +1,12 @@
 use async_h1::client;
 use async_trait::async_trait;
-use http_types::{Error as HttpError, Method as HttpMethod, Request, Response, StatusCode, Url};
-use log::debug;
+use http_types::{Error as HttpError, Method as HttpMethod, Request, Response, Url};
 use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{env, fmt::Debug};
 use tracing::*;
+
+use crate::error::SendgridError;
 
 /// Base url for the Sendgrid API.
 const DEFAULT_BASE_URL: &str = "https://api.sendgrid.com/v3/";
@@ -69,27 +70,6 @@ impl ClientBuilder {
     }
 }
 
-/// Common API errors.
-#[derive(Debug, thiserror::Error)]
-pub enum ClientError<ErrorResponse>
-where
-    ErrorResponse: Debug + Send + DeserializeOwned + 'static,
-{
-    #[error("API request error")]
-    ApiError(StatusCode, ErrorResponse),
-    #[error("An error has occurred while performing the API request: {}", _0)]
-    HttpError(HttpError),
-}
-
-impl<ErrorResponse> From<HttpError> for ClientError<ErrorResponse>
-where
-    ErrorResponse: Debug + Send + DeserializeOwned + 'static,
-{
-    fn from(err: HttpError) -> Self {
-        Self::HttpError(err)
-    }
-}
-
 /// A trait for indicating that the implementor can send an API call.
 #[async_trait]
 pub trait Sendable
@@ -116,19 +96,24 @@ where
     async fn send(
         &self,
         client: &Client,
-    ) -> Result<Self::Response, ClientError<Self::ErrorResponse>> {
+    ) -> Result<Self::Response, SendgridError<Self::ErrorResponse>> {
         let mut req = client.create_request(Self::METHOD, &self.rel_path())?;
 
         self.modify_request(&mut req)?;
 
         let mut resp = send_http_request(req).await?;
-        trace!("response: {:?}", resp);
         if resp.status().is_success() {
+            // Empty body needs to deserialize to unit struct for mail/send
+            if resp.is_empty() == Some(true) {
+                resp.set_body("null");
+            }
+            
             Ok(resp.body_json().await?)
         } else {
-            Err(ClientError::ApiError(
+            let body = resp.body_json().await?;
+            Err(SendgridError::ApiError(
                 resp.status(),
-                resp.body_json().await?,
+                body,
             ))
         }
     }
@@ -136,7 +121,6 @@ where
 
 async fn send_http_request(req: Request) -> Result<Response, HttpError> {
     use std::io::{Error as IoError, ErrorKind as IoErrorKind};
-    debug!("executing request: {:#?}", req);
 
     let host = req
         .url()
@@ -162,8 +146,6 @@ async fn send_http_request(req: Request) -> Result<Response, HttpError> {
     } else {
         client::connect(tcp_stream, req).await
     };
-
-    debug!("http result: {:#?}", result);
 
     result
 }

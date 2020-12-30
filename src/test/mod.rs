@@ -1,13 +1,14 @@
 mod fixture;
 
+use crate::api::*;
 use crate::client::Sendable;
 use crate::Client;
-use crate::api::*;
 
-const SENDGRID_API_KEY: &str = "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";
+const SENDGRID_API_KEY: &str =
+    "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";
 
 fn create_client() -> Client {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = tracing_subscriber::fmt::try_init();
 
     let base_url = fixture::run().unwrap();
 
@@ -22,20 +23,41 @@ fn create_client() -> Client {
 async fn test_list_mail_send() {
     let client = create_client();
 
-    let request = MailSendRequest {
-        from: Address {
-            email: "nick@infinyon.com".to_owned()
-        },
-        subject: "Crate Test Email".to_owned(),
-        personalizations: vec![
-            Personalization {
-                to: vec![Address {
-                    email: "nick+cratetest@infinyon.com".to_owned()
-                }]
-            }
-        ],
-        ..Default::default()
-    };
+    // let request = MailSendRequestBuilder::default()
+    //     .from(
+    //         AddressBuilder::default()
+    //             .email("nick@infinyon.com")
+    //             .build()
+    //             .unwrap(),
+    //     )
+    //     .add_personalization(PersonalizationBuilder::default()
+    //         .to(vec![AddressBuilder::default()
+    //             .email("nick@infinyon.com")
+    //             .build()
+    //             .unwrap()])
+    //         .build()
+    //         .unwrap())
+    //     .subject("Crate Test Email")
+    //     .add_content(ContentBuilder::default()
+    //         .content_type("text/plain")
+    //         .value("Hello test")
+    //         .build()
+    //         .unwrap()
+    //     )
+    //     .build()
+    //     .unwrap();
+
+    let request = MailSendRequest::default()
+        .set_from(Address::default().set_email("nick@infinyon.com"))
+        .set_subject("Crate Test Email")
+        .add_personalization(
+            Personalization::default().add_to(Address::default().set_email("nick@infinyon.com")),
+        )
+        .add_content(
+            Content::default()
+                .set_content_type("text/plain")
+                .set_value("Hello test"),
+        );
 
     let _response = request.send(&client).await.unwrap();
 }

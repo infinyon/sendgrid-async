@@ -1,10 +1,8 @@
 use serde::Deserialize;
-pub use http_types::StatusCode;
 
 #[derive(Debug, Deserialize)]
 pub struct ErrorReponse {
     errors: Vec<Error>,
-    status_code: StatusCode
 }
 
 
