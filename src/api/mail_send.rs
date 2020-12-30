@@ -80,7 +80,6 @@ impl MailSendRequest {
 
 impl Sendable for MailSendRequest {
     type Response = ();
-    type ErrorResponse = super::ErrorReponse;
 
     const METHOD: http_types::Method = http_types::Method::Post;
 

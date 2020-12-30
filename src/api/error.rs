@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct ErrorReponse {
-    errors: Vec<Error>,
+pub struct ErrorResponse {
+    errors: Option<Vec<Error>>,
 }
 
 

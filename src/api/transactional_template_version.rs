@@ -12,7 +12,6 @@ pub struct RetrieveTemplateVersionRequest {
 
 impl Sendable for RetrieveTemplateVersionRequest {
     type Response = TemplateVersion;
-    type ErrorResponse = super::ErrorReponse;
 
     const METHOD: http_types::Method = http_types::Method::Get;
 
@@ -28,7 +27,6 @@ pub struct CreateTemplateVersionRequest {
 
 impl Sendable for CreateTemplateVersionRequest {
     type Response = TemplateVersion;
-    type ErrorResponse = super::ErrorReponse;
 
     const METHOD: http_types::Method = http_types::Method::Get;
 

@@ -6,6 +6,7 @@ use std::borrow::Cow;
 use std::{env, fmt::Debug};
 use tracing::*;
 
+use crate::api::ErrorResponse;
 use crate::error::SendgridError;
 
 /// Base url for the Sendgrid API.
@@ -79,8 +80,6 @@ where
     /// The output object from this API request.
     type Response: Debug + Send + DeserializeOwned + 'static;
 
-    type ErrorResponse: Debug + Send + DeserializeOwned + 'static;
-
     /// HTTP method used by this call.
     const METHOD: HttpMethod;
 
@@ -96,19 +95,24 @@ where
     async fn send(
         &self,
         client: &Client,
-    ) -> Result<Self::Response, SendgridError<Self::ErrorResponse>> {
+    ) -> Result<Self::Response, SendgridError<ErrorResponse>> {
         let mut req = client.create_request(Self::METHOD, &self.rel_path())?;
 
         self.modify_request(&mut req)?;
 
+        trace!("Sending request: {:#?}", req);
         let mut resp = send_http_request(req).await?;
+        trace!("Received response: {:#?}", resp);
+        trace!("Received response body: {:#?}", resp.body_string().await?);
+        
         if resp.status().is_success() {
             // Empty body needs to deserialize to unit struct for mail/send
             if resp.is_empty() == Some(true) {
                 resp.set_body("null");
             }
             
-            Ok(resp.body_json().await?)
+            let body = resp.body_json().await?;
+            Ok(body)
         } else {
             let body = resp.body_json().await?;
             Err(SendgridError::ApiError(

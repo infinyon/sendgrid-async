@@ -9,7 +9,8 @@ use super::paging::PagingMetadata;
 #[derive(Serialize, Debug)]
 pub struct ListTemplatesRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub generations: Option<String>,
+    #[serde(rename = "generations")]
+    pub generation: Option<Generation>,
     pub page_size: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_token: Option<String>,
@@ -18,7 +19,7 @@ pub struct ListTemplatesRequest {
 impl Default for ListTemplatesRequest {
     fn default() -> Self {
         Self {
-            generations: None,
+            generation: None,
             page_size: 200,
             page_token: None,
         }
@@ -27,7 +28,6 @@ impl Default for ListTemplatesRequest {
 
 impl Sendable for ListTemplatesRequest {
     type Response = ListTemplatesResponse;
-    type ErrorResponse = ();
 
     const METHOD: http_types::Method = http_types::Method::Get;
 
@@ -38,6 +38,16 @@ impl Sendable for ListTemplatesRequest {
     fn modify_request(&self, req: &mut Request) -> Result<(), HttpError> {
         req.set_query(self)
     }
+}
+
+#[derive(Serialize, Debug)]
+pub enum Generation {
+    #[serde(rename = "legacy")]
+    Legacy,
+    #[serde(rename = "dynamic")]
+    Dynamic,
+    #[serde(rename = "legacy,dynamic")]
+    Both
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,4 +62,14 @@ pub struct Template {
     pub id: String,
     pub name: String,
     pub generation: String,
+    pub versions: Vec<TemplateVersion>
+}
+
+#[derive(Deserialize, Debug)]
+pub struct TemplateVersion {
+    id: String,
+    template_id: String,
+    name: String,
+    generate_plain_content: bool,
+    subject: String,   
 }
