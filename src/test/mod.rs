@@ -23,30 +23,6 @@ fn create_client() -> Client {
 async fn test_list_mail_send() {
     let client = create_client();
 
-    // let request = MailSendRequestBuilder::default()
-    //     .from(
-    //         AddressBuilder::default()
-    //             .email("nick@infinyon.com")
-    //             .build()
-    //             .unwrap(),
-    //     )
-    //     .add_personalization(PersonalizationBuilder::default()
-    //         .to(vec![AddressBuilder::default()
-    //             .email("nick@infinyon.com")
-    //             .build()
-    //             .unwrap()])
-    //         .build()
-    //         .unwrap())
-    //     .subject("Crate Test Email")
-    //     .add_content(ContentBuilder::default()
-    //         .content_type("text/plain")
-    //         .value("Hello test")
-    //         .build()
-    //         .unwrap()
-    //     )
-    //     .build()
-    //     .unwrap();
-
     let request = MailSendRequest::default()
         .set_from(Address::default().set_email("nick@infinyon.com"))
         .set_subject("Crate Test Email")
