@@ -7,15 +7,25 @@ description = "An async-std based client for sending emails with SendGrid"
 documentation = "https://docs.rs/sendgrid-async"
 repository = "https://github.com/infinyon/sendgrid-async"
 license = "Apache-2.0"
-categories = ["api-bindings","asynchronous","email"]
+categories = ["api-bindings", "asynchronous", "email"]
 
 [dependencies]
-anyhow = "1.0"
-async-h1 = "2.1"
-async-std = "1.6"
-async-tls = { version = "0.9", default-features = false, features = ["client"] }
-data-encoding = "2.3"
-http-types = "2.4"
+async-h1 = "2"
+async-native-tls = "0.3"
+async-net = "1"
+async-trait = "0.1"
+data-encoding = "2"
+http-types = "2"
 log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+async-std = { version = "1", features = ["attributes"] }
+async-test = "1"
+lazy_static = "1"
+rand = "0.8"
+tide = "0.15"
+tracing-subscriber = "0.2"

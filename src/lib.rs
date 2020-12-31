@@ -1,5 +1,7 @@
-mod sendgrid;
+mod api;
+mod client;
+mod error;
+#[cfg(test)] mod test;
 
-pub(crate) mod http_client;
-
-pub use sendgrid::*;
+pub use client::{Client, Sendable};
+pub use api::*;
