@@ -1,10 +1,12 @@
 use async_h1::client;
 use async_trait::async_trait;
-use http_types::{Error as HttpError, Method as HttpMethod, Request, Response, Url};
+use http_types::{Error as HttpError, Method as HttpMethod, Request, Response, Url, Body};
 use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::{env, fmt::Debug};
 use tracing::*;
+use log::Level::Trace;
+use log::log_enabled;
 
 use crate::api::ErrorResponse;
 use crate::error::SendgridError;
@@ -103,7 +105,11 @@ where
         trace!("Sending request: {:#?}", req);
         let mut resp = send_http_request(req).await?;
         trace!("Received response: {:#?}", resp);
-        trace!("Received response body: {:#?}", resp.body_string().await?);
+
+        if log_enabled!(Trace) {
+            let body_string = get_response_body_string(&mut resp).await?;
+            trace!("Received response body: {:#?}", body_string);
+        }
         
         if resp.status().is_success() {
             // Empty body needs to deserialize to unit struct for mail/send
@@ -121,6 +127,15 @@ where
             ))
         }
     }
+}
+
+async fn get_response_body_string(resp: &mut Response) -> Result<String, HttpError> {
+    let body = resp.take_body();
+
+    let body_string = body.into_string().await?;
+    let body = Body::from_string(body_string.clone());
+    resp.set_body(body);
+    Ok(body_string)
 }
 
 async fn send_http_request(req: Request) -> Result<Response, HttpError> {

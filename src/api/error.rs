@@ -1,8 +1,14 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct ErrorResponse {
-    errors: Option<Vec<Error>>,
+#[serde(untagged)]
+pub enum ErrorResponse {
+    Single {
+        error: String,
+    },
+    Multiple {
+        errors: Option<Vec<Error>>,
+    }
 }
 
 
