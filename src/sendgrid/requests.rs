@@ -1,4 +1,4 @@
-use http_types::{Request, Result, StatusCode};
+use http_types::{Request, Result, Error, StatusCode};
 use serde::{Deserialize, Serialize};
 
 use super::Client;
@@ -59,9 +59,9 @@ impl ListTemplatesRequest {
 
         let mut response = crate::http_client::execute(request).await?;
         if response.status() != StatusCode::Ok {
-            panic!("received response status");
+            return Err(Error::new(response.status(), anyhow::anyhow!("received unexpected status")))
         }
 
-        Ok(response.body_json().await?)
+        response.body_json().await
     }
 }
